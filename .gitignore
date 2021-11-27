@@ -5,3 +5,7 @@
 **/*ckpt*/
 **/*.pt
 **/gens/
+
+lmd_full
+lmd_remi
+generations

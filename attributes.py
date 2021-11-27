@@ -4,15 +4,15 @@ import os, pickle
 import numpy as np
 from collections import Counter
 
-data_dir = 'remi_dataset'
-polyph_out_dir = 'remi_dataset/attr_cls/polyph'
-rhythm_out_dir = 'remi_dataset/attr_cls/rhythm'
+data_dir = 'lmd_remi'
+polyph_out_dir = 'lmd_remi/attr_cls/polyph'
+rhythm_out_dir = 'lmd_remi/attr_cls/rhythm'
 
 rhym_intensity_bounds = [0.2, 0.25, 0.32, 0.38, 0.44, 0.5, 0.63]
 polyphonicity_bounds = [2.63, 3.06, 3.50, 4.00, 4.63, 5.44, 6.44]
 
 def compute_polyphonicity(events, n_bars):
-  poly_record = np.zeros( (n_bars * 16,) )
+  poly_record = np.zeros( (n_bars * 48,) )
 
   cur_bar, cur_pos = -1, -1
   for ev in events:
@@ -22,13 +22,13 @@ def compute_polyphonicity(events, n_bars):
       cur_pos = int(ev['value'])
     elif ev['name'] == 'Note_Duration':
       duration = int(ev['value']) // 120
-      st = cur_bar * 16 + cur_pos
+      st = cur_bar * 48 + cur_pos
       poly_record[st:st + duration] += 1
   
   return poly_record
 
 def get_onsets_timing(events, n_bars):
-  onset_record = np.zeros( (n_bars * 16,) )
+  onset_record = np.zeros( (n_bars * 48,) )
 
   cur_bar, cur_pos = -1, -1
   for ev in events:
@@ -37,7 +37,7 @@ def get_onsets_timing(events, n_bars):
     elif ev['name'] == 'Beat':
       cur_pos = int(ev['value'])
     elif ev['name'] == 'Note_Pitch':
-      rec_idx = cur_bar * 16 + cur_pos
+      rec_idx = cur_bar * 48 + cur_pos
       onset_record[ rec_idx ] = 1
 
   return onset_record
@@ -52,7 +52,8 @@ if __name__ == "__main__":
   if not os.path.exists(rhythm_out_dir):
     os.makedirs(rhythm_out_dir)  
 
-  for p in pieces:
+  for i, p in enumerate(pieces):
+    print(f'\r{i+1:4d}/{len(pieces):4d}', end='')
     bar_pos, events = pickle_load(os.path.join(data_dir, p))
     events = events[ :bar_pos[-1] ]
 
@@ -75,6 +76,6 @@ if __name__ == "__main__":
 
     all_r_cls.extend(rfreq_cls)
     all_p_cls.extend(polyph_cls)
-
+  print()
   print ('[rhythm classes]', Counter(all_r_cls))
   print ('[polyph classes]', Counter(all_p_cls))

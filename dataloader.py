@@ -25,11 +25,11 @@ KEY_TO_IDX = {
 }
 
 def get_chord_tone(chord_event):
-  tone = chord_event['value'].split('_')[0]
+  tone = chord_event['value'].split(':')[0]
   return tone
 
 def transpose_chord(chord_event, n_keys):
-  if chord_event['value'] == 'N_N':
+  if chord_event['value'] == 'N:N':
     return chord_event
 
   orig_tone = get_chord_tone(chord_event)
@@ -46,6 +46,8 @@ def transpose_chord(chord_event, n_keys):
 def check_extreme_pitch(raw_events):
   low, high = 128, 0
   for ev in raw_events:
+    if 'drum' in str(ev['value']):
+      continue
     if ev['name'] == 'Note_Pitch':
       low = min(low, int(ev['value']))
       high = max(high, int(ev['value']))
@@ -57,8 +59,12 @@ def transpose_events(raw_events, n_keys):
 
   for ev in raw_events:
     if ev['name'] == 'Note_Pitch':
+      if 'drum' in str(ev['value']):
+        new_val = ev['value']
+      else:
+        new_val = ev['value'] + n_keys
       transposed_raw_events.append(
-        {'name': ev['name'], 'value': ev['value'] + n_keys}
+        {'name': ev['name'], 'value': new_val}
       )
     elif ev['name'] == 'Chord':
       transposed_raw_events.append(
@@ -276,7 +282,7 @@ class REMIFullSongTransformerDataset(Dataset):
 if __name__ == "__main__":
   # codes below are for unit test
   dset = REMIFullSongTransformerDataset(
-    './remi_dataset', './pickles/remi_vocab.pkl', do_augment=True, use_attr_cls=True,
+    './lmd_remi', './pickles/remi_vocab_lmd.pkl', do_augment=False, use_attr_cls=True,
     model_max_bars=16, model_dec_seqlen=1280, model_enc_seqlen=128, min_pitch=22, max_pitch=107
   )
   print (dset.bar_token, dset.pad_token, dset.vocab_size)
