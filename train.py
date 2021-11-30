@@ -9,7 +9,9 @@ from utils import pickle_load
 from torch import nn, optim
 import torch
 import numpy as np
+import wandb
 
+import glob
 import yaml
 config_path = sys.argv[1]
 config = yaml.load(open(config_path, 'r'), Loader=yaml.FullLoader)
@@ -24,7 +26,7 @@ kl_max_beta = config['training']['kl_max_beta']
 free_bit_lambda = config['training']['free_bit_lambda']
 max_lr, min_lr = config['training']['max_lr'], config['training']['min_lr']
 
-ckpt_dir = config['training']['ckpt_dir']
+ckpt_dir = config['training']['ckpt_dir'].replace('$SCRATCH', os.getenv('SCRATCH'))
 params_dir = os.path.join(ckpt_dir, 'params/')
 optim_dir = os.path.join(ckpt_dir, 'optim/')
 pretrained_params_path = config['model']['pretrained_params_path']
@@ -131,6 +133,7 @@ def train_model(epoch, model, dloader, dloader_val, optim, sched):
       log_epoch(
         os.path.join(ckpt_dir, 'log.txt'), log_data, is_init=not os.path.exists(os.path.join(ckpt_dir, 'log.txt'))
       )
+      wandb.log({ 'train': log_data }, step=trained_steps)
 
     if not trained_steps % val_interval:
       vallosses = validate(model, dloader_val)
@@ -142,6 +145,12 @@ def train_model(epoch, model, dloader, dloader_val, optim, sched):
           np.mean(vallosses[0]),
           np.mean(vallosses[1])
         ))
+      wandb.log({
+        'val': {
+          'rec_loss': np.mean(vallosses[0]),
+          'kl_loss': np.mean(vallosses[1])
+        }
+      }, step=trained_steps)
       model.train()
 
     if not trained_steps % ckpt_interval:
@@ -216,22 +225,37 @@ def validate(model, dloader, n_rounds=8, use_attr_cls=True):
   return loss_rec, kl_loss_rec
 
 if __name__ == "__main__":
+  wandb.init(
+    entity='dvruette',
+    project='muse-morphose',
+    config=config
+  )
+
+  data_dir = config['data']['data_dir'].replace('$SCRATCH', os.getenv('SCRATCH'))
+  pieces = glob.glob(os.path.join(data_dir, '*.pkl'))
+  n_val_pieces = 425
+  # n_train_pieces = 2000
+  n_train_pieces = len(pieces) - n_val_pieces
+
+  train_pieces = pieces[:n_train_pieces]
+  val_pieces = pieces[n_train_pieces:n_train_pieces+n_val_pieces]
+
   dset = REMIFullSongTransformerDataset(
-    config['data']['data_dir'], config['data']['vocab_path'], 
+    data_dir, config['data']['vocab_path'], 
     do_augment=False, 
     model_enc_seqlen=config['data']['enc_seqlen'], 
     model_dec_seqlen=config['data']['dec_seqlen'], 
     model_max_bars=config['data']['max_bars'],
-    pieces=pickle_load(config['data']['train_split']),
+    pieces=train_pieces,
     pad_to_same=True
   )
   dset_val = REMIFullSongTransformerDataset(
-    config['data']['data_dir'], config['data']['vocab_path'], 
+    data_dir, config['data']['vocab_path'], 
     do_augment=False, 
     model_enc_seqlen=config['data']['enc_seqlen'], 
     model_dec_seqlen=config['data']['dec_seqlen'], 
     model_max_bars=config['data']['max_bars'],
-    pieces=pickle_load(config['data']['val_split']),
+    pieces=val_pieces,
     pad_to_same=True
   )
   print ('[info]', '# training samples:', len(dset.pieces))
@@ -268,6 +292,6 @@ if __name__ == "__main__":
     os.makedirs(params_dir)
   if not os.path.exists(optim_dir):
     os.makedirs(optim_dir)
-
+  
   for ep in range(config['training']['max_epochs']):
     train_model(ep+1, model, dloader, dloader_val, optimizer, scheduler)

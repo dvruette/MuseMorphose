@@ -140,7 +140,10 @@ class REMIFullSongTransformerDataset(Dataset):
     self.piece_bar_pos = []
 
     for i, p in enumerate(self.pieces):
-      bar_pos, p_evs = pickle_load(p)
+      pkl = pickle_load(p)
+      if len(pkl) != 2:
+        print(i, p, pkl)
+      bar_pos, p_evs = pkl
       if not i % 200:
         print ('[preparing data] now at #{}'.format(i))
       if bar_pos[-1] == len(p_evs):
@@ -263,7 +266,7 @@ class REMIFullSongTransformerDataset(Dataset):
 
     return {
       'id': idx,
-      'piece_id': int(self.pieces[idx].split('/')[-1].replace('.pkl', '')),
+      'piece_id': self.pieces[idx].split('/')[-1].replace('.pkl', ''),
       'st_bar_id': st_bar,
       'bar_pos': np.array(bar_pos, dtype=int),
       'enc_input': enc_inp,

@@ -4,9 +4,9 @@ import os, pickle
 import numpy as np
 from collections import Counter
 
-data_dir = 'lmd_remi'
-polyph_out_dir = 'lmd_remi/attr_cls/polyph'
-rhythm_out_dir = 'lmd_remi/attr_cls/rhythm'
+data_dir = os.getenv('REMI_DIR', 'lmd_remi')
+polyph_out_dir = os.path.join(data_dir, 'attr_cls', 'polyph')
+rhythm_out_dir = os.path.join(data_dir, 'attr_cls', 'rhythm')
 
 rhym_intensity_bounds = [0.2, 0.25, 0.32, 0.38, 0.44, 0.5, 0.63]
 polyphonicity_bounds = [2.63, 3.06, 3.50, 4.00, 4.63, 5.44, 6.44]

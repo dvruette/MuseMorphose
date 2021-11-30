@@ -9,3 +9,5 @@
 lmd_full
 lmd_remi
 generations
+lsf.*
+wandb
