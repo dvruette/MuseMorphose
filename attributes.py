@@ -4,6 +4,8 @@ import os, pickle
 import numpy as np
 from collections import Counter
 
+from constants import DEFAULT_DURATION_BINS
+
 data_dir = os.getenv('REMI_DIR', 'lmd_remi')
 polyph_out_dir = os.path.join(data_dir, 'attr_cls', 'polyph')
 rhythm_out_dir = os.path.join(data_dir, 'attr_cls', 'rhythm')
@@ -21,7 +23,9 @@ def compute_polyphonicity(events, n_bars):
     elif ev['name'] == 'Beat':
       cur_pos = int(ev['value'])
     elif ev['name'] == 'Note_Duration':
-      duration = int(ev['value']) // 120
+      duration_cls = int(ev['value'])
+      duration = DEFAULT_DURATION_BINS[duration_cls]
+      # print(duration_cls, DEFAULT_DURATION_BINS[duration_cls])
       st = cur_bar * 48 + cur_pos
       poly_record[st:st + duration] += 1
   
