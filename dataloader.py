@@ -135,7 +135,7 @@ class REMIFullSongTransformerDataset(Dataset):
     if not self.pieces:
       self.pieces = sorted( glob(os.path.join(self.data_dir, '*.pkl')) )
     else:
-      self.pieces = sorted( [os.path.join(self.data_dir, p) for p in self.pieces] )
+      self.pieces = sorted( self.pieces )
 
     self.piece_bar_pos = []
 

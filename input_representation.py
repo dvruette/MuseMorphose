@@ -178,6 +178,9 @@ class InputRepresentation():
       item.start += shift
       item.end += shift
 
+  def get_end_tick(self):
+    return self.pm.time_to_tick(self.pm.get_end_time())
+
   # extract chord
   def extract_chords(self):
     method = MIDIChord(self.pm)
@@ -261,6 +264,11 @@ class InputRepresentation():
     if time_sig is None:
       time_sig = self.pm.time_signature_changes[-1]
     return time_sig
+
+  def _get_ticks_per_bar(self, start):
+    time_sig = self._get_time_signature(start)
+    quarters_per_bar = 4 * time_sig.numerator / time_sig.denominator
+    return self.pm.resolution * quarters_per_bar
 
   def _get_positions_per_bar(self, start=None, time_sig=None):
     if time_sig is None:

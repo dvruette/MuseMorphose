@@ -2,10 +2,10 @@ import torch
 import pickle
 from scipy.spatial import distance
 
-# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 
-def numpy_to_tensor(arr, use_gpu=True, device='cuda:0'):
+def numpy_to_tensor(arr, use_gpu=True, device=device):
   if use_gpu:
     return torch.tensor(arr).to(device).float()
   else:

@@ -6,20 +6,28 @@ from dataloader import REMIFullSongTransformerDataset
 from model.musemorphose import MuseMorphose
 
 from utils import pickle_load, numpy_to_tensor, tensor_to_numpy
-from remi2midi import remi2midi
+# from remi2midi import remi2midi
+from input_representation import remi2midi
 
 import torch
 import yaml
 import numpy as np
 from scipy.stats import entropy
+import glob
 
 config_path = sys.argv[1]
 config = yaml.load(open(config_path, 'r'), Loader=yaml.FullLoader)
 
 device = config['training']['device']
-data_dir = config['data']['data_dir']
 vocab_path = config['data']['vocab_path']
-data_split = 'pickles/test_pieces.pkl'
+data_dir = config['data']['data_dir'].replace('$SCRATCH', os.getenv('SCRATCH', '.'))
+pieces = glob.glob(os.path.join(data_dir, '*.pkl'))
+n_val_pieces = 425
+# n_train_pieces = 2000
+n_train_pieces = len(pieces) - n_val_pieces
+
+train_pieces = pieces[:n_train_pieces]
+val_pieces = pieces[n_train_pieces:n_train_pieces+n_val_pieces]
 
 ckpt_path = sys.argv[2]
 out_dir = sys.argv[3]
@@ -55,7 +63,7 @@ def nucleus(probs, p):
     sorted_index = np.argsort(probs)[::-1]
     cusum_sorted_probs = np.cumsum(sorted_probs)
     after_threshold = cusum_sorted_probs > p
-    if sum(after_threshold) > 0:
+    if p > 0 and p < 1 and sum(after_threshold) > 0:
         last_index = np.where(after_threshold)[0][1]
         candi_index = sorted_index[:last_index]
     else:
@@ -107,6 +115,7 @@ def generate_on_latent_ctrl_vanilla_truncate(
   time_st = time.time()
   cur_pos = 0
   failed_cnt = 0
+  n_repeats = 0
 
   cur_input_len = len(generated)
   generated_final = deepcopy(generated)
@@ -133,18 +142,25 @@ def generate_on_latent_ctrl_vanilla_truncate(
     probs = temperatured_softmax(logits, temperature)
     word = nucleus(probs, nucleus_p)
     word_event = idx2event[word]
+    print(word_event)
 
     if 'Beat' in word_event:
       event_pos = get_beat_idx(word_event)
-      if not event_pos >= cur_pos:
-        failed_cnt += 1
-        print ('[info] position not increasing, failed cnt:', failed_cnt)
-        if failed_cnt >= 128:
-          print ('[FATAL] model stuck, exiting ...')
-          return generated
-        continue
-      else:
+      if event_pos > cur_pos:
+        n_repeats = 0
         cur_pos = event_pos
+      if not event_pos >= cur_pos:
+        # failed_cnt += 1
+        # print ('[info] position not increasing, failed cnt:', failed_cnt)
+        # if failed_cnt >= 128:
+        #   print ('[FATAL] model stuck, exiting ...')
+        #   return generated
+        # continue
+        n_repeats += 1
+        if n_repeats >= 128:
+          print ('[FATAL] model stuck in repetition, exiting ...')
+          return generated_final[:-1], time.time() - time_st, np.array(entropies)
+      else:
         failed_cnt = 0
 
     if 'Bar' in word_event:
@@ -199,7 +215,7 @@ if __name__ == "__main__":
     model_enc_seqlen=config['data']['enc_seqlen'], 
     model_dec_seqlen=config['generate']['dec_seqlen'],
     model_max_bars=config['generate']['max_bars'],
-    pieces=pickle_load(data_split),
+    pieces=val_pieces,
     pad_to_same=False
   )
   pieces = random.sample(range(len(dset)), n_pieces)
@@ -231,14 +247,17 @@ if __name__ == "__main__":
     orig_p_cls_str = ''.join(str(c) for c in p_data['polyph_cls_bar'])
     orig_r_cls_str = ''.join(str(c) for c in p_data['rhymfreq_cls_bar'])
 
-    orig_song = p_data['dec_input'].tolist()[:p_data['length']]
+    # orig_song = p_data['dec_input'].tolist()[:p_data['length']]
+    orig_song = p_data['dec_input'].tolist()
     orig_song = word2event(orig_song, dset.idx2event)
     orig_out_file = os.path.join(out_dir, 'id{}_bar{}_orig'.format(
         p, p_bar_id
     ))
     print ('[info] writing to ...', orig_out_file)
     # output reference song's MIDI
-    _, orig_tempo = remi2midi(orig_song, orig_out_file + '.mid', return_first_tempo=True, enforce_tempo=False)
+    # _, orig_tempo = remi2midi(orig_song, orig_out_file + '.mid', return_first_tempo=True, enforce_tempo=False)
+    pm = remi2midi(orig_song)
+    pm.write(f"{orig_out_file}.mid")
 
     # save metadata of reference song (events & attr classes)
     print (*orig_song, sep='\n', file=open(orig_out_file + '.txt', 'a'))
@@ -247,6 +266,8 @@ if __name__ == "__main__":
 
 
     for k in p_data.keys():
+      if k == 'piece_id':
+        continue
       if not torch.is_tensor(p_data[k]):
         p_data[k] = numpy_to_tensor(p_data[k], device=device)
       else:
@@ -257,19 +278,19 @@ if __name__ == "__main__":
                   use_sampling=config['generate']['use_latent_sampling'],
                   sampling_var=config['generate']['latent_sampling_var']
                 )
-    p_cls_diff = random_shift_attr_cls(n_samples_per_piece)
-    r_cls_diff = random_shift_attr_cls(n_samples_per_piece)
+    # p_cls_diff = random_shift_attr_cls(n_samples_per_piece)
+    # r_cls_diff = random_shift_attr_cls(n_samples_per_piece)
 
     piece_entropies = []
     for samp in range(n_samples_per_piece):
-      p_polyph_cls = (p_data['polyph_cls_bar'] + p_cls_diff[samp]).clamp(0, 7).long()
-      p_rfreq_cls = (p_data['rhymfreq_cls_bar'] + r_cls_diff[samp]).clamp(0, 7).long()
+      # p_polyph_cls = (p_data['polyph_cls_bar'] + p_cls_diff[samp]).clamp(0, 7).long()
+      # p_rfreq_cls = (p_data['rhymfreq_cls_bar'] + r_cls_diff[samp]).clamp(0, 7).long()
+      p_polyph_cls = p_data['polyph_cls_bar'].long()
+      p_rfreq_cls = p_data['rhymfreq_cls_bar'].long()
 
       print ('[info] piece: {}, bar: {}'.format(p_id, p_bar_id))
-      out_file = os.path.join(out_dir, 'id{}_bar{}_sample{:02d}_poly{}_rhym{}'.format(
-        p, p_bar_id, samp + 1,
-        '+{}'.format(p_cls_diff[samp]) if p_cls_diff[samp] >= 0 else p_cls_diff[samp], 
-        '+{}'.format(r_cls_diff[samp]) if r_cls_diff[samp] >= 0 else r_cls_diff[samp]
+      out_file = os.path.join(out_dir, 'id{}_bar{}_sample{:03d}'.format(
+        p, p_bar_id, samp + 1
       ))      
       print ('[info] writing to ...', out_file)
       if os.path.exists(out_file + '.txt'):
@@ -285,13 +306,14 @@ if __name__ == "__main__":
                                   truncate_len=min(512, config['generate']['max_input_dec_seqlen'] - 32), 
                                   nucleus_p=config['generate']['nucleus_p'], 
                                   temperature=config['generate']['temperature'],
-                                  
                                 )
       times.append(t_sec)
 
       song = word2event(song, dset.idx2event)
       print (*song, sep='\n', file=open(out_file + '.txt', 'a'))
-      remi2midi(song, out_file + '.mid', enforce_tempo=True, enforce_tempo_val=orig_tempo)
+      # remi2midi(song, out_file + '.mid', enforce_tempo=True, enforce_tempo_val=orig_tempo)
+      pm = remi2midi(song)
+      pm.write(f"{out_file}.mid")
 
       # save metadata of the generation
       np.save(out_file + '-POLYCLS.npy', tensor_to_numpy(p_polyph_cls))

@@ -26,7 +26,7 @@ kl_max_beta = config['training']['kl_max_beta']
 free_bit_lambda = config['training']['free_bit_lambda']
 max_lr, min_lr = config['training']['max_lr'], config['training']['min_lr']
 
-ckpt_dir = config['training']['ckpt_dir'].replace('$SCRATCH', os.getenv('SCRATCH'))
+ckpt_dir = config['training']['ckpt_dir'].replace('$SCRATCH', os.getenv('SCRATCH', '.'))
 params_dir = os.path.join(ckpt_dir, 'params/')
 optim_dir = os.path.join(ckpt_dir, 'optim/')
 pretrained_params_path = config['model']['pretrained_params_path']
@@ -231,7 +231,7 @@ if __name__ == "__main__":
     config=config
   )
 
-  data_dir = config['data']['data_dir'].replace('$SCRATCH', os.getenv('SCRATCH'))
+  data_dir = config['data']['data_dir'].replace('$SCRATCH', os.getenv('SCRATCH', '.'))
   pieces = glob.glob(os.path.join(data_dir, '*.pkl'))
   n_val_pieces = 425
   # n_train_pieces = 2000
