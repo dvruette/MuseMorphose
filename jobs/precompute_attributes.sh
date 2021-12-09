@@ -7,7 +7,8 @@ module load gcc/6.3.0 python_gpu/3.8.5 cuda/11.1.1 libsndfile/1.0.28 fluidsynth/
 # Make sure that local packages take precedence over preinstalled packages
 export PYTHONPATH=$HOME/.local/lib/python3.8/site-packages:$PYTHONPATH
 
-export REMI_DIR="$SCRATCH/lmd/lmd_remi/$i"
+export REMI_DIR="$SCRATCH/lmd/lmd_remi"
+export FILE_PATTERN="$i_*.pkl"
 python $HOME/MuseMorphose/attributes.py
 ENDBSUB
 
