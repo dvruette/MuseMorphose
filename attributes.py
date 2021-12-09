@@ -1,12 +1,13 @@
 from utils import pickle_load
 
-import os, pickle
+import os, pickle, glob
 import numpy as np
 from collections import Counter
 
 from constants import DEFAULT_DURATION_BINS
 
 data_dir = os.getenv('REMI_DIR', 'lmd_remi')
+file_pattern = os.getenv('FILE_PATTERN', '*.pkl')
 polyph_out_dir = os.path.join(data_dir, 'attr_cls', 'polyph')
 rhythm_out_dir = os.path.join(data_dir, 'attr_cls', 'rhythm')
 
@@ -47,7 +48,7 @@ def get_onsets_timing(events, n_bars):
   return onset_record
 
 if __name__ == "__main__":
-  pieces = [p for p in sorted(os.listdir(data_dir)) if '.pkl' in p]
+  pieces = sorted([os.path.basename(f) for f in glob.glob(os.path.join(data_dir, file_pattern))])
   all_r_cls = []
   all_p_cls = []
 

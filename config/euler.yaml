@@ -20,13 +20,14 @@ model:
     d_polyph_emb:     64
     d_rfreq_emb:      64
     cond_mode:        in-attn
-    pretrained_params_path:      null
-    pretrained_optim_path:       null
+    pretrained_params_path: $SCRATCH/MuseMorphose/ckpt/gentle-eon-11_params.pt
+    pretrained_optim_path: $SCRATCH/MuseMorphose/ckpt/gentle-eon-11_optim.pt
 
 training:
+    wandb_run:        ycuqnpce
     device:           cuda
-    ckpt_dir:         $SCRATCH/MuseMorphose/ckpt/enc_dec_12L-16_bars-seqlen_1280
-    trained_steps:    0
+    ckpt_dir:         $SCRATCH/MuseMorphose/ckpt/enc_dec_12L-16_bars-seqlen_512
+    trained_steps:    65450
     max_epochs:       1000
     max_lr:           1.0e-4
     min_lr:           5.0e-6
@@ -46,6 +47,6 @@ generate:
     nucleus_p:                  1.0
     use_latent_sampling:        False
     latent_sampling_var:        0.0
-    max_bars:                   16       # could be set to match the longest input piece during generation (inference)
-    dec_seqlen:                 16000     # could be set to match the longest input piece during generation (inference)
+    max_bars:                   128      # could be set to match the longest input piece during generation (inference)
+    dec_seqlen:                 32000   # could be set to match the longest input piece during generation (inference)
     max_input_dec_seqlen:       512     # should be set to equal to or less than `dec_seqlen` used during training

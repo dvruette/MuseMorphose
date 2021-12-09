@@ -19,12 +19,10 @@ device = config['training']['device']
 vocab_path = config['data']['vocab_path']
 data_dir = config['data']['data_dir'].replace('$SCRATCH', os.getenv('SCRATCH', '.'))
 pieces = glob.glob(os.path.join(data_dir, '*.pkl'))
-n_val_pieces = 425
-# n_train_pieces = 2000
-n_train_pieces = len(pieces) - n_val_pieces
 
-train_pieces = pieces[:n_train_pieces]
-val_pieces = pieces[n_train_pieces:n_train_pieces+n_val_pieces]
+n_pieces = len(pieces)
+n_val_pieces = max(1024, int(0.1 * n_pieces))
+val_pieces = pieces[-n_val_pieces:]
 
 ckpt_path = sys.argv[2]
 out_file = sys.argv[3]

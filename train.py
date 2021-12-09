@@ -26,11 +26,18 @@ kl_max_beta = config['training']['kl_max_beta']
 free_bit_lambda = config['training']['free_bit_lambda']
 max_lr, min_lr = config['training']['max_lr'], config['training']['min_lr']
 
-ckpt_dir = config['training']['ckpt_dir'].replace('$SCRATCH', os.getenv('SCRATCH', '.'))
+ckpt_dir = config['training']['ckpt_dir']
+ckpt_dir = ckpt_dir.replace('$SCRATCH', os.getenv('SCRATCH', '.')) if ckpt_dir else ckpt_dir
 params_dir = os.path.join(ckpt_dir, 'params/')
 optim_dir = os.path.join(ckpt_dir, 'optim/')
+
 pretrained_params_path = config['model']['pretrained_params_path']
 pretrained_optim_path = config['model']['pretrained_optim_path']
+if pretrained_params_path:
+  pretrained_params_path = pretrained_params_path.replace('$SCRATCH', os.getenv('SCRATCH', '.'))
+if pretrained_optim_path:
+  pretrained_optim_path = pretrained_optim_path.replace('$SCRATCH', os.getenv('SCRATCH', '.'))
+  
 ckpt_interval = config['training']['ckpt_interval']
 log_interval = config['training']['log_interval']
 val_interval = config['training']['val_interval']
@@ -226,16 +233,20 @@ def validate(model, dloader, n_rounds=8, use_attr_cls=True):
 
 if __name__ == "__main__":
   wandb.init(
+    id=config['training']['wandb_run'],
     entity='dvruette',
     project='muse-morphose',
-    config=config
+    config=config,
+    resume='allow'
   )
 
-  data_dir = config['data']['data_dir'].replace('$SCRATCH', os.getenv('SCRATCH', '.'))
+  data_dir = config['data']['data_dir']
+  data_dir = data_dir.replace('$SCRATCH', os.getenv('SCRATCH', '.')) if data_dir else data_dir
+  
   pieces = glob.glob(os.path.join(data_dir, '*.pkl'))
   n_val_pieces = 425
-  # n_train_pieces = 2000
-  n_train_pieces = len(pieces) - n_val_pieces
+  n_train_pieces = 20000
+  # n_train_pieces = len(pieces) - n_val_pieces
 
   train_pieces = pieces[:n_train_pieces]
   val_pieces = pieces[n_train_pieces:n_train_pieces+n_val_pieces]
