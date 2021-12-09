@@ -29,9 +29,11 @@ def get_group_id(file):
   name = os.path.basename(file)
   return int(name.split('_')[0][2:4])
 
-def get_file_groups(dir):
+def get_file_groups(path):
   # change this depending on file structure of generated samples
-  files = glob.glob(os.path.join(dir, '**', '*.mid'), recursive=True)
+  files = glob.glob(os.path.join(path, '**', '*.mid'), recursive=True)
+  assert len(files), f"provided directory was empty: {path}"
+
   samples = sorted([file for file in files if 'sample' in file])
   origs = sorted([file for file in files if 'orig' in file])
   pairs = list(zip(origs, samples))
@@ -161,6 +163,7 @@ if __name__ == '__main__':
 
     micro_metrics = pd.DataFrame()
     for orig_file, sample_file in group:
+      print(f"[info] Group {sample_id+1}/{len(file_groups)} | original: {orig_file} | sample: {sample_file}")
       orig = ir.InputRepresentation(orig_file)
       sample = ir.InputRepresentation(sample_file)
 
@@ -171,7 +174,7 @@ if __name__ == '__main__':
       for g1, g2, cg1, cg2 in zip(orig.groups, sample.groups, chord_groups1, chord_groups2):
         row = pd.DataFrame([{ 'id': sample_id, 'original': orig_file, 'sample': sample_file }])
 
-        meta1, meta2 = meta_stats(g1), meta_stats(g2)
+        meta1, meta2 = meta_stats(g1, ticks_per_beat=orig.pm.resolution), meta_stats(g2, ticks_per_beat=sample.pm.resolution)
         row['pitch_oa'] = overlapping_area(meta1['pitch_mean'], meta1['pitch_std'], meta2['pitch_mean'], meta2['pitch_std'])
         row['velocity_oa'] = overlapping_area(meta1['velocity_mean'], meta1['velocity_std'], meta2['velocity_mean'], meta2['velocity_std'])
         row['duration_oa'] = overlapping_area(meta1['duration_mean'], meta1['duration_std'], meta2['duration_mean'], meta2['duration_std'])
@@ -179,6 +182,10 @@ if __name__ == '__main__':
         row['mean_pitch_abs_err'] = np.abs(meta1['pitch_mean'] - meta2['pitch_mean'])
         row['mean_velocity_abs_err'] = np.abs(meta1['velocity_mean'] - meta2['velocity_mean'])
         row['mean_duration_abs_err'] = np.abs(meta1['duration_mean'] - meta2['duration_mean'])
+
+        ts1, ts2 = orig._get_time_signature(g1[0]), sample._get_time_signature(g2[0])
+        ts1, ts2 = f"{ts1.numerator}/{ts1.denominator}", f"{ts2.numerator}/{ts2.denominator}"
+        row['time_sig_acc'] = 1 if ts1 == ts2 else 0
 
         inst1, inst2 = instruments(g1), instruments(g2)
         prec, rec, f1 = multi_class_accuracy(inst1, inst2)
@@ -208,5 +215,13 @@ if __name__ == '__main__':
         micro_metrics = pd.concat([micro_metrics, row], ignore_index=True)
 
     metrics = pd.concat([metrics, micro_metrics], ignore_index=True)
-  print(metrics)
+
+    micro_avg = micro_metrics.mean(numeric_only=True)
+    print("[info] Group {}: inst_f1={:.2f} | chord_f1={:.2f} | pitch_oa={:.2f} | vel_oa={:.2f} | dur_oa={:.2f} | chroma_sim={:.2f} | groove_sim={:.2f}".format(
+      sample_id+1, micro_avg['inst_f1'], micro_avg['chord_f1'], micro_avg['pitch_oa'], micro_avg['velocity_oa'], micro_avg['duration_oa'], micro_avg['chroma_sim'], micro_avg['groove_sim']
+    ))
   metrics.to_csv(OUT_FILE)
+  
+  summary_keys = ['inst_f1', 'chord_f1', 'time_sig_acc', 'note_density_abs_err', 'pitch_oa', 'velocity_oa', 'duration_oa', 'chroma_sim', 'groove_sim']
+  print('***** SUMMARY *****')
+  print(metrics[summary_keys + ['id']].groupby('id').mean().mean())

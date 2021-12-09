@@ -11,3 +11,4 @@ lmd_remi
 generations
 lsf.*
 wandb
+*.csv

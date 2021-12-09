@@ -142,7 +142,6 @@ def generate_on_latent_ctrl_vanilla_truncate(
     probs = temperatured_softmax(logits, temperature)
     word = nucleus(probs, nucleus_p)
     word_event = idx2event[word]
-    print(word_event)
 
     if 'Beat' in word_event:
       event_pos = get_beat_idx(word_event)
@@ -186,9 +185,9 @@ def generate_on_latent_ctrl_vanilla_truncate(
     assert cur_input_len == len(generated)
     if cur_input_len == max_input_len:
       generated = generated[-truncate_len:]
-      latent_placeholder[:len(generated)-1, 0, :] = latent_placeholder[cur_input_len-truncate_len:cur_input_len-1, 0, :]
-      rfreq_placeholder[:len(generated)-1, 0] = rfreq_placeholder[cur_input_len-truncate_len:cur_input_len-1, 0]
-      polyph_placeholder[:len(generated)-1, 0] = polyph_placeholder[cur_input_len-truncate_len:cur_input_len-1, 0]
+      latent_placeholder[:len(generated)-1, 0, :] = latent_placeholder[cur_input_len-truncate_len:cur_input_len-1, 0, :].clone().detach()
+      rfreq_placeholder[:len(generated)-1, 0] = rfreq_placeholder[cur_input_len-truncate_len:cur_input_len-1, 0].clone().detach()
+      polyph_placeholder[:len(generated)-1, 0] = polyph_placeholder[cur_input_len-truncate_len:cur_input_len-1, 0].clone().detach()
 
       print ('[info] reset context length: cur_len: {}, accumulated_len: {}, truncate_range: {} ~ {}'.format(
         cur_input_len, len(generated_final), cur_input_len-truncate_len, cur_input_len-1
@@ -251,7 +250,7 @@ if __name__ == "__main__":
     orig_song = p_data['dec_input'].tolist()
     orig_song = word2event(orig_song, dset.idx2event)
     orig_out_file = os.path.join(out_dir, 'id{}_bar{}_orig'.format(
-        p, p_bar_id
+        p_id, p_bar_id
     ))
     print ('[info] writing to ...', orig_out_file)
     # output reference song's MIDI
@@ -290,7 +289,7 @@ if __name__ == "__main__":
 
       print ('[info] piece: {}, bar: {}'.format(p_id, p_bar_id))
       out_file = os.path.join(out_dir, 'id{}_bar{}_sample{:03d}'.format(
-        p, p_bar_id, samp + 1
+        p_id, p_bar_id, samp + 1
       ))      
       print ('[info] writing to ...', out_file)
       if os.path.exists(out_file + '.txt'):
